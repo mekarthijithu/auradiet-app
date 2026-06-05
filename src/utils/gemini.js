@@ -232,13 +232,13 @@ Provide your response in beautifully formatted markdown. Include:
 export const compileGroceryList = async (dietPlanText, apiKey) => {
   if (!apiKey) {
     return [
-      { id: 'f1', name: 'Chicken Breast (1.5kg)', price: 650, checked: false },
-      { id: 'f2', name: 'Fresh Fish / Paneer (500g)', price: 350, checked: false },
-      { id: 'f3', name: 'Rolled Oats (1kg)', price: 180, checked: false },
-      { id: 'f4', name: 'Organic Avocados (5pcs)', price: 400, checked: false },
-      { id: 'f5', name: 'Greek Yogurt (1.5kg)', price: 320, checked: false },
-      { id: 'f6', name: 'Mixed Frozen Berries', price: 280, checked: false },
-      { id: 'f7', name: 'Broccoli & Asparagus Bunch', price: 180, checked: false }
+      { id: 'f1', name: 'Chicken Breast', weight: '1.5kg', price: 650, checked: false },
+      { id: 'f2', name: 'Fresh Fish / Paneer', weight: '500g', price: 350, checked: false },
+      { id: 'f3', name: 'Rolled Oats', weight: '1kg', price: 180, checked: false },
+      { id: 'f4', name: 'Organic Avocados', weight: '5 pcs', price: 400, checked: false },
+      { id: 'f5', name: 'Greek Yogurt', weight: '1.5kg', price: 320, checked: false },
+      { id: 'f6', name: 'Mixed Frozen Berries', weight: '500g', price: 280, checked: false },
+      { id: 'f7', name: 'Broccoli & Asparagus Bunch', weight: '1 bunch', price: 180, checked: false }
     ];
   }
 
@@ -248,7 +248,8 @@ Extract the necessary ingredients and compile a weekly grocery shopping list wit
 Format the output as a JSON array of objects with the exact schema:
 [
   {
-    "name": "Item name with quantity (e.g. Eggs (Dozen))",
+    "name": "Item name (e.g. Chicken Breast, Eggs, Oats)",
+    "weight": "Weight or quantity (e.g. 1.5kg, Dozen, 500g)",
     "price": 85
   }
 ]
@@ -260,6 +261,7 @@ Output only valid JSON. Estimate realistic Indian grocery market costs.`;
     return parsed.map((item, idx) => ({
       id: `ai-${idx}-${Date.now()}`,
       name: item.name,
+      weight: item.weight || '',
       price: item.price || 150,
       checked: false
     }));

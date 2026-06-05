@@ -13,9 +13,11 @@ import AiWeightLoss from './components/AiWeightLoss';
 import BudgetGrocery from './components/BudgetGrocery';
 import Settings from './components/Settings';
 import ProfileSetup from './components/ProfileSetup';
-import { getProfile, getLogs, getGroceries, getDietPlan, saveProfile, saveLogs, saveGroceries, saveDietPlan, formatDate } from './utils/db';
+import Login from './components/Login';
+import { getProfile, getLogs, getGroceries, getDietPlan, saveProfile, saveLogs, saveGroceries, saveDietPlan, formatDate, getCurrentProfileId, setCurrentProfileId } from './utils/db';
 
 export default function App() {
+  const [currentProfileId, setCurrentProfileIdState] = useState(() => getCurrentProfileId());
   const [profile, setProfile] = useState(null);
   const [logs, setLogs] = useState(null);
   const [groceries, setGroceries] = useState([]);
@@ -25,8 +27,10 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(formatDate(new Date()));
   const [showSetup, setShowSetup] = useState(false);
 
-  // Initialize data on mount
+  // Initialize data on mount and when active profile switches
   useEffect(() => {
+    if (!currentProfileId) return;
+
     const loadedProfile = getProfile();
     const loadedLogs = getLogs();
     const loadedGroceries = getGroceries();
@@ -40,8 +44,24 @@ export default function App() {
     // If profile setup hasn't been completed, show setup wizard
     if (loadedProfile && !loadedProfile.setupCompleted) {
       setShowSetup(true);
+    } else {
+      setShowSetup(false);
     }
-  }, []);
+  }, [currentProfileId]);
+
+  const handleSelectProfile = (id) => {
+    setCurrentProfileId(id);
+    setCurrentProfileIdState(id);
+  };
+
+  const handleLogout = () => {
+    setCurrentProfileId(null);
+    setCurrentProfileIdState(null);
+    setProfile(null);
+    setLogs(null);
+    setGroceries([]);
+    setDietPlan(null);
+  };
 
   const handleProfileUpdate = (updatedProfile) => {
     const nextProfile = { ...updatedProfile, setupCompleted: true };
@@ -83,6 +103,10 @@ export default function App() {
     setCurrentDate(formatDate(new Date()));
     setShowSetup(false);
   };
+
+  if (!currentProfileId) {
+    return <Login onSelectProfile={handleSelectProfile} />;
+  }
 
   if (!profile || !logs) {
     return (
@@ -198,6 +222,7 @@ export default function App() {
             profile={profile}
             onProfileUpdate={handleProfileUpdate}
             onResetAll={handleResetAll}
+            onLogout={handleLogout}
           />
         )}
       </main>

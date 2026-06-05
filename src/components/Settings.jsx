@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink } from 'lucide-react';
 
-export default function Settings({ profile, onProfileUpdate, onResetAll }) {
+export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout }) {
   const [apiKey, setApiKey] = useState(profile.apiKey || '');
   const [monthlyChange, setMonthlyChange] = useState(profile.monthlyTargetWeightChange || -2.0);
   const [cal, setCal] = useState(profile.targets.calories || 2000);
@@ -192,6 +192,23 @@ export default function Settings({ profile, onProfileUpdate, onResetAll }) {
         </div>
 
       </form>
+
+      {/* Profile Management Section */}
+      <div className="glass-panel" style={{ padding: '2rem', marginTop: '2.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          Profile Session
+        </h3>
+        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+          You are currently logged in as <strong style={{ color: '#fff' }}>{profile.name || 'Jithu'}</strong>.
+        </p>
+
+        <button 
+          onClick={onLogout}
+          className="btn btn-secondary"
+        >
+          Logout & Switch Profile
+        </button>
+      </div>
 
       {/* Database Reset Danger Zone */}
       <div className="glass-panel" style={{ padding: '2rem', border: '1px solid hsl(var(--rose) / 25%)', marginTop: '3rem' }}>

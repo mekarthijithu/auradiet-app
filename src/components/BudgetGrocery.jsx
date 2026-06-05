@@ -12,6 +12,7 @@ import {
 
 export default function BudgetGrocery({ profile, logs, groceries, onGroceriesUpdate }) {
   const [newItemName, setNewItemName] = useState('');
+  const [newItemWeight, setNewItemWeight] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
 
   // 1. Calculate Spending Metrics from Logged Meals
@@ -80,12 +81,14 @@ export default function BudgetGrocery({ profile, logs, groceries, onGroceriesUpd
     const newItem = {
       id: `custom-${Date.now()}`,
       name: newItemName,
+      weight: newItemWeight.trim(),
       price,
       checked: false
     };
 
     onGroceriesUpdate([...groceries, newItem]);
     setNewItemName('');
+    setNewItemWeight('');
     setNewItemPrice('');
   };
 
@@ -170,7 +173,14 @@ export default function BudgetGrocery({ profile, logs, groceries, onGroceriesUpd
                     <div className="custom-checkbox">
                       {item.checked && <Check size={12} strokeWidth={3} />}
                     </div>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{item.name}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{item.name}</span>
+                      {item.weight && (
+                        <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-secondary))' }}>
+                          {item.weight}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -214,10 +224,21 @@ export default function BudgetGrocery({ profile, logs, groceries, onGroceriesUpd
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="e.g. Rolled Oats (1kg)"
+                placeholder="e.g. Chicken Breast"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Weight / Quantity</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="e.g. 250 gm or 1kg"
+                value={newItemWeight}
+                onChange={(e) => setNewItemWeight(e.target.value)}
               />
             </div>
 
