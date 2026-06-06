@@ -73,7 +73,7 @@ export default function App() {
   };
 
   // Perform pull/push sync with conflict resolution
-  const triggerCloudSync = async (selectedProfileId) => {
+  const triggerCloudSync = async (selectedProfileId, isSilent = false) => {
     const activeId = selectedProfileId || currentProfileId;
     if (!activeId) return;
 
@@ -82,7 +82,7 @@ export default function App() {
 
     // 1. Generate a sync code on the cloud if none exists
     if (!localProfile.syncCode) {
-      setSyncStatus('syncing');
+      if (!isSilent) setSyncStatus('syncing');
       try {
         const payload = {
           profile: { ...localProfile, syncCode: null },
@@ -118,7 +118,7 @@ export default function App() {
     }
 
     // 2. Profile has a sync code, fetch remote data
-    setSyncStatus('syncing');
+    if (!isSilent) setSyncStatus('syncing');
     try {
       const remoteData = await fetchCloudData(localProfile.syncCode);
       if (remoteData && remoteData.lastUpdated) {
@@ -230,6 +230,17 @@ export default function App() {
     // Trigger cloud sync in background
     triggerCloudSync(currentProfileId);
   }, [currentProfileId]);
+
+  // Automatic silent polling in background for real-time syncing
+  useEffect(() => {
+    if (!currentProfileId || !profile || !profile.syncCode) return;
+
+    const interval = setInterval(() => {
+      triggerCloudSync(currentProfileId, true);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentProfileId, profile?.syncCode]);
 
   const handleSelectProfile = (id) => {
     setCurrentProfileId(id);
