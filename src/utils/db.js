@@ -1,6 +1,6 @@
 // LocalStorage Database and Seeding Utility
 
-const KEYS = {
+export const KEYS = {
   PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V3',
   CURRENT_PROFILE_ID: 'AURA_DIET_CURRENT_PROFILE_ID_V3',
   PROFILE: (id) => `AURA_DIET_PROFILE_${id}_V3`,
@@ -104,7 +104,8 @@ const seedDatabase = (id) => {
       fat: 60, // grams
       fiber: 30 // grams
     },
-    setupCompleted: id === 'jithu' // Jithu starts setup-complete so clicking immediately enters home
+    setupCompleted: id === 'jithu', // Jithu starts setup-complete so clicking immediately enters home
+    lastUpdated: Date.now()
   };
   localStorage.setItem(KEYS.PROFILE(id), JSON.stringify(defaultProfile));
 
@@ -230,4 +231,52 @@ export const resetDB = () => {
   localStorage.removeItem(KEYS.GROCERIES(id));
   localStorage.removeItem(KEYS.DIET_PLAN(id));
   seedDatabase(id);
+};
+
+// --- CLOUD SYNC API HELPERS ---
+export const fetchCloudData = async (syncCode) => {
+  const res = await fetch(`https://api.restful-api.dev/objects/${syncCode}`);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Sync profile not found");
+    }
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  const result = await res.json();
+  return result.data;
+};
+
+export const uploadCloudData = async (syncCode, payload) => {
+  const res = await fetch(`https://api.restful-api.dev/objects/${syncCode}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: `AuraDiet Sync: ${payload.profile.name}`,
+      data: payload
+    })
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  return await res.json();
+};
+
+export const createCloudProfile = async (payload) => {
+  const res = await fetch('https://api.restful-api.dev/objects', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: `AuraDiet Sync: ${payload.profile.name}`,
+      data: payload
+    })
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  const result = await res.json();
+  return result.id;
 };
