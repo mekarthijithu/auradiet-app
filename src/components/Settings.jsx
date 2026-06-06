@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink, User, Cloud, Copy, RefreshCw } from 'lucide-react';
 
-export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout, onManualSync, syncStatus }) {
+export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout }) {
   const [apiKey, setApiKey] = useState(profile.apiKey || '');
   const [monthlyChange, setMonthlyChange] = useState(profile.monthlyTargetWeightChange || -2.0);
   const [height, setHeight] = useState(profile.height || 178);
@@ -299,76 +299,44 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
 
       </form>
 
-      {/* Cloud Backup & Sync */}
+      {/* Database Connection Settings */}
       <div className="glass-panel" style={{ padding: '2rem', marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Cloud size={18} color="hsl(var(--cyan))" /> Cloud Backup & Sync
+          <Cloud size={18} color="hsl(var(--cyan))" /> Vercel KV Database Integration
         </h3>
         <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-          Automatically sync your diet progress, logged meals, targets, and grocery items across your mobile phone and web browser.
+          Automatically sync your diet progress, logged meals, targets, and grocery items across all browsers using Vercel KV.
         </p>
 
-        {profile.syncCode ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Your Unique Profile Sync Code</span>
-                {syncStatus === 'syncing' && <span style={{ color: 'hsl(var(--cyan))', fontSize: '0.75rem', fontWeight: 600 }}>Syncing changes...</span>}
-                {syncStatus === 'synced' && <span style={{ color: 'hsl(var(--emerald))', fontSize: '0.75rem', fontWeight: 600 }}>Up to date</span>}
-                {syncStatus === 'error' && <span style={{ color: 'hsl(var(--rose))', fontSize: '0.75rem', fontWeight: 600 }}>Sync offline</span>}
-              </label>
-              
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={profile.syncCode} 
-                  readOnly 
-                  style={{ 
-                    fontFamily: 'monospace', 
-                    fontSize: '1rem', 
-                    letterSpacing: '0.05em', 
-                    background: 'hsl(var(--bg-dark) / 50%)', 
-                    borderColor: 'hsl(var(--border-light))', 
-                    cursor: 'text',
-                    flexGrow: 1
-                  }} 
-                />
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => {
-                    navigator.clipboard.writeText(profile.syncCode);
-                    alert("Sync code copied to clipboard!");
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.5rem 1rem' }}
-                  title="Copy Sync Code"
-                >
-                  <Copy size={14} /> Copy
-                </button>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onManualSync}
-                disabled={syncStatus === 'syncing'}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem' }}
-              >
-                <RefreshCw size={14} className={syncStatus === 'syncing' ? 'spinner' : ''} />
-                Force Sync Now
-              </button>
-              <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                Last backup timestamp: {profile.lastUpdated ? new Date(profile.lastUpdated).toLocaleString() : 'Never'}
-              </span>
-            </div>
+        {import.meta.env.VITE_KV_REST_API_URL && import.meta.env.VITE_KV_REST_API_TOKEN ? (
+          <div style={{
+            padding: '1rem',
+            background: 'hsl(var(--emerald) / 5%)',
+            border: '1px solid hsl(var(--emerald) / 20%)',
+            borderRadius: '8px',
+            color: 'hsl(var(--emerald))',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--emerald))', boxShadow: '0 0 8px hsl(var(--emerald))' }} />
+            <span><strong>Vercel KV Connected:</strong> Your daily data is stored in the database. When you open the application in another browser, all updates are fully reflected instantly.</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
-            <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
-            <span>Generating cloud sync code...</span>
+          <div style={{
+            padding: '1rem',
+            background: 'hsl(var(--amber) / 5%)',
+            border: '1px solid hsl(var(--amber) / 20%)',
+            borderRadius: '8px',
+            color: 'hsl(var(--amber))',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--amber))', boxShadow: '0 0 8px hsl(var(--amber))' }} />
+            <span><strong>Running in Local Storage Mode:</strong> Connect Vercel KV database under the Vercel Dashboard Storage tab to automatically sync your data.</span>
           </div>
         )}
       </div>

@@ -1,47 +1,65 @@
-import React, { useState } from 'react';
-import { Heart, Plus, Trash2, CloudDownload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, Plus, Trash2 } from 'lucide-react';
 import { getProfilesList, createProfile, deleteProfile } from '../utils/db';
 
-export default function Login({ onSelectProfile, onLinkProfile }) {
-  const [profiles, setProfiles] = useState(() => getProfilesList());
+export default function Login({ onSelectProfile }) {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
-  const [showLinkForm, setShowLinkForm] = useState(false);
-  const [syncCodeInput, setSyncCodeInput] = useState('');
-  const [linkError, setLinkError] = useState('');
-  const [linking, setLinking] = useState(false);
 
-  const handleLinkProfileSubmit = async (e) => {
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProfiles = async () => {
+      setLoading(true);
+      try {
+        const list = await getProfilesList();
+        if (isMounted) {
+          setProfiles(list);
+        }
+      } catch (err) {
+        console.error("Failed to load profiles:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchProfiles();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleAddProfile = async (e) => {
     e.preventDefault();
-    if (!syncCodeInput.trim()) return;
-    setLinking(true);
-    setLinkError('');
-    
-    const result = await onLinkProfile(syncCodeInput.trim());
-    setLinking(false);
-    if (result.success) {
-      setSyncCodeInput('');
-      setShowLinkForm(false);
-    } else {
-      setLinkError(result.error || "Profile not found or connection failed.");
+    if (!newProfileName.trim()) return;
+    setLoading(true);
+    try {
+      const newProfile = await createProfile(newProfileName.trim());
+      const updatedList = await getProfilesList();
+      setProfiles(updatedList);
+      setNewProfileName('');
+      setShowAddForm(false);
+      onSelectProfile(newProfile.id);
+    } catch (err) {
+      console.error("Failed to add profile:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddProfile = (e) => {
-    e.preventDefault();
-    if (!newProfileName.trim()) return;
-    const newProfile = createProfile(newProfileName.trim());
-    setProfiles(getProfilesList());
-    setNewProfileName('');
-    setShowAddForm(false);
-    onSelectProfile(newProfile.id);
-  };
-
-  const handleDeleteProfile = (e, id) => {
+  const handleDeleteProfile = async (e, id) => {
     e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this profile and all its data?')) {
-      deleteProfile(id);
-      setProfiles(getProfilesList());
+      setLoading(true);
+      try {
+        await deleteProfile(id);
+        const updatedList = await getProfilesList();
+        setProfiles(updatedList);
+      } catch (err) {
+        console.error("Failed to delete profile:", err);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -56,173 +74,108 @@ export default function Login({ onSelectProfile, onLinkProfile }) {
           <p className="login-subtitle">Choose a profile to access your personalized AI diet assistant</p>
         </div>
 
-        <div className="profiles-grid">
-          {profiles.map((p) => {
-            return (
-              <div 
-                key={p.id} 
-                className="profile-login-card"
-                onClick={() => onSelectProfile(p.id)}
-                style={{ position: 'relative' }}
-              >
-                {p.id !== 'jithu' && (
-                  <button
-                    onClick={(e) => handleDeleteProfile(e, p.id)}
-                    style={{
-                      position: 'absolute',
-                      top: '0.5rem',
-                      right: '0.5rem',
-                      background: 'hsl(var(--bg-dark) / 80%)',
-                      border: '1px solid hsl(var(--border-light))',
-                      color: 'hsl(var(--rose))',
-                      cursor: 'pointer',
-                      padding: '0.35rem',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 10,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                    }}
-                    title="Delete Profile"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
+        {loading && profiles.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'center', margin: '2rem 0' }}>
+            <div className="spinner"></div>
+          </div>
+        ) : (
+          <div className="profiles-grid">
+            {profiles.map((p) => {
+              return (
                 <div 
-                  className="profile-avatar"
-                  style={{ background: p.avatarColor || 'hsl(var(--emerald))', overflow: 'hidden' }}
+                  key={p.id} 
+                  className="profile-login-card"
+                  onClick={() => onSelectProfile(p.id)}
+                  style={{ position: 'relative' }}
                 >
-                  <img 
-                    src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p.name)}`} 
-                    alt={p.name} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-                <span className="profile-name">{p.name}</span>
-                <span className="profile-role">Active Member</span>
-              </div>
-            );
-          })}
-
-          {/* Card 1: Add Member */}
-          {!showAddForm && !showLinkForm && (
-            <div 
-              className="profile-login-card add-profile-card"
-              onClick={() => setShowAddForm(true)}
-            >
-              <div className="profile-avatar add-avatar">
-                <Plus size={24} />
-              </div>
-              <span className="profile-name" style={{ color: 'hsl(var(--text-secondary))' }}>Add Member</span>
-              <span className="profile-role">New Profile</span>
-            </div>
-          )}
-
-          {/* Form 1: Add Member Form */}
-          {showAddForm && (
-            <div className="profile-login-card add-profile-form-card">
-              <form onSubmit={handleAddProfile} style={{ width: '100%' }}>
-                <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter name"
-                    value={newProfileName}
-                    onChange={(e) => setNewProfileName(e.target.value)}
-                    autoFocus
-                    required
-                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', flexGrow: 1 }}>
-                    Create
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => setShowAddForm(false)}
-                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                  {p.id !== 'jithu' && (
+                    <button
+                      onClick={(e) => handleDeleteProfile(e, p.id)}
+                      style={{
+                        position: 'absolute',
+                        top: '0.5rem',
+                        right: '0.5rem',
+                        background: 'hsl(var(--bg-dark) / 80%)',
+                        border: '1px solid hsl(var(--border-light))',
+                        color: 'hsl(var(--rose))',
+                        cursor: 'pointer',
+                        padding: '0.35rem',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                      }}
+                      title="Delete Profile"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                  <div 
+                    className="profile-avatar"
+                    style={{ background: p.avatarColor || 'hsl(var(--emerald))', overflow: 'hidden' }}
                   >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Card 2: Link Profile */}
-          {!showLinkForm && !showAddForm && (
-            <div 
-              className="profile-login-card add-profile-card"
-              onClick={() => {
-                setShowLinkForm(true);
-                setLinkError('');
-              }}
-              style={{ borderColor: 'hsl(var(--cyan) / 30%)' }}
-            >
-              <div className="profile-avatar add-avatar" style={{ color: 'hsl(var(--cyan))', borderColor: 'hsl(var(--cyan) / 30%)' }}>
-                <CloudDownload size={24} />
-              </div>
-              <span className="profile-name" style={{ color: 'hsl(var(--text-secondary))' }}>Link Profile</span>
-              <span className="profile-role">Sync Existing</span>
-            </div>
-          )}
-
-          {/* Form 2: Link Profile Form */}
-          {showLinkForm && (
-            <div className="profile-login-card add-profile-form-card" style={{ gridColumn: 'span 1', width: '100%', minWidth: '220px' }}>
-              <form onSubmit={handleLinkProfileSubmit} style={{ width: '100%' }}>
-                <div className="form-group" style={{ marginBottom: '0.5rem' }}>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Paste 32-char sync code"
-                    value={syncCodeInput}
-                    onChange={(e) => setSyncCodeInput(e.target.value)}
-                    autoFocus
-                    required
-                    style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                  />
-                </div>
-                {linkError && (
-                  <div style={{ color: 'hsl(var(--rose))', fontSize: '0.75rem', marginBottom: '0.5rem', textAlign: 'left', lineHeight: '1.3' }}>
-                    {linkError}
+                    <img 
+                      src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p.name)}`} 
+                      alt={p.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                   </div>
-                )}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary" 
-                    disabled={linking}
-                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}
-                  >
-                    {linking ? (
-                      <>
-                        <span className="spinner" style={{ width: '10px', height: '10px', borderWidth: '1.5px' }} />
-                        Linking...
-                      </>
-                    ) : 'Link & Sync'}
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => {
-                      setShowLinkForm(false);
-                      setSyncCodeInput('');
-                      setLinkError('');
-                    }}
-                    disabled={linking}
-                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
-                  >
-                    Cancel
-                  </button>
+                  <span className="profile-name">{p.name}</span>
+                  <span className="profile-role">Active Member</span>
                 </div>
-              </form>
-            </div>
-          )}
-        </div>
+              );
+            })}
+
+            {/* Card: Add Member */}
+            {!showAddForm && (
+              <div 
+                className="profile-login-card add-profile-card"
+                onClick={() => setShowAddForm(true)}
+              >
+                <div className="profile-avatar add-avatar">
+                  <Plus size={24} />
+                </div>
+                <span className="profile-name" style={{ color: 'hsl(var(--text-secondary))' }}>Add Member</span>
+                <span className="profile-role">New Profile</span>
+              </div>
+            )}
+
+            {/* Form: Add Member Form */}
+            {showAddForm && (
+              <div className="profile-login-card add-profile-form-card">
+                <form onSubmit={handleAddProfile} style={{ width: '100%' }}>
+                  <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Enter name"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      autoFocus
+                      required
+                      style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', flexGrow: 1 }}>
+                      Create
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={() => setShowAddForm(false)}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
