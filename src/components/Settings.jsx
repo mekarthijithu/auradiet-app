@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink, User, Cloud, Copy, RefreshCw } from 'lucide-react';
 
-export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout }) {
+export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout, dbConnected }) {
   const [apiKey, setApiKey] = useState(profile.apiKey || '');
   const [monthlyChange, setMonthlyChange] = useState(profile.monthlyTargetWeightChange || -2.0);
   const [height, setHeight] = useState(profile.height || 178);
@@ -302,13 +302,13 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
       {/* Database Connection Settings */}
       <div className="glass-panel" style={{ padding: '2rem', marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Cloud size={18} color="hsl(var(--cyan))" /> Vercel KV Database Integration
+          <Cloud size={18} color="hsl(var(--cyan))" /> Database Integration Status
         </h3>
         <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-          Automatically sync your diet progress, logged meals, targets, and grocery items across all browsers using Vercel KV.
+          Automatically sync your diet progress, logged meals, targets, and grocery items across all browsers using your remote database.
         </p>
 
-        {import.meta.env.VITE_KV_REST_API_URL && import.meta.env.VITE_KV_REST_API_TOKEN ? (
+        {dbConnected ? (
           <div style={{
             padding: '1rem',
             background: 'hsl(var(--emerald) / 5%)',
@@ -321,7 +321,7 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
             gap: '0.5rem'
           }}>
             <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--emerald))', boxShadow: '0 0 8px hsl(var(--emerald))' }} />
-            <span><strong>Vercel KV Connected:</strong> Your daily data is stored in the database. When you open the application in another browser, all updates are fully reflected instantly.</span>
+            <span><strong>Database Connected:</strong> Your daily data is stored in the database. When you open the application in another browser, all updates are fully reflected instantly.</span>
           </div>
         ) : (
           <div style={{
@@ -336,7 +336,7 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
             gap: '0.5rem'
           }}>
             <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--amber))', boxShadow: '0 0 8px hsl(var(--amber))' }} />
-            <span><strong>Running in Local Storage Mode:</strong> Connect Vercel KV database under the Vercel Dashboard Storage tab to automatically sync your data.</span>
+            <span><strong>Running in Local Storage Mode:</strong> The local database API proxy `/api/db` is unreachable, or `REDIS_URL` is missing. Sync is inactive.</span>
           </div>
         )}
       </div>

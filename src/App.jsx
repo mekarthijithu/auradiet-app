@@ -27,7 +27,8 @@ import {
   formatDate, 
   getCurrentProfileId, 
   setCurrentProfileId,
-  resetDB
+  resetDB,
+  checkDbConnected
 } from './utils/db';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(formatDate(new Date()));
   const [showSetup, setShowSetup] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dbConnected, setDbConnected] = useState(false);
 
   // Initialize data on mount and when active profile switches
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function App() {
           setLogs(loadedLogs);
           setGroceries(loadedGroceries);
           setDietPlan(loadedDietPlan);
+          setDbConnected(checkDbConnected());
 
           // If profile setup hasn't been completed, show setup wizard
           if (loadedProfile && !loadedProfile.setupCompleted) {
@@ -206,10 +209,10 @@ export default function App() {
           color: 'hsl(var(--text-secondary))',
           alignSelf: 'flex-start'
         }}>
-          {import.meta.env.VITE_KV_REST_API_URL && import.meta.env.VITE_KV_REST_API_TOKEN ? (
+          {dbConnected ? (
             <>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'hsl(var(--emerald))', boxShadow: '0 0 6px hsl(var(--emerald))' }} />
-              <span>Vercel KV Connected</span>
+              <span>Redis DB Connected</span>
             </>
           ) : (
             <>
@@ -317,6 +320,7 @@ export default function App() {
             onProfileUpdate={handleProfileUpdate}
             onResetAll={handleResetAll}
             onLogout={handleLogout}
+            dbConnected={dbConnected}
           />
         )}
       </main>

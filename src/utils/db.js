@@ -1,5 +1,11 @@
 // Remote Redis Database Utility via API Proxy
 
+let isUsingDatabase = false;
+
+export const checkDbConnected = () => {
+  return isUsingDatabase;
+};
+
 // Vercel KV / Upstash Redis Command Runner over HTTP
 const runKVCommand = async (command) => {
   try {
@@ -26,17 +32,21 @@ const runKVCommand = async (command) => {
     const res = await fetch(url, options);
     if (!res.ok) {
       console.warn(`Serverless DB API Error: HTTP ${res.status}`);
+      isUsingDatabase = false;
       return null;
     }
     const data = await res.json();
+    isUsingDatabase = true;
     return data.result;
   } catch (err) {
     console.warn("Database API is currently unreachable. Falling back to local storage.", err);
+    isUsingDatabase = false;
     return null;
   }
 };
 
 const isKVConfigured = true; // Enabled by default to use the /api/db proxy
+
 
 export const KEYS = {
   PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V3',
