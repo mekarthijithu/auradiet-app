@@ -5,7 +5,8 @@ import {
   TrendingDown, 
   ShoppingCart, 
   Settings as SettingsIcon, 
-  Heart 
+  Heart,
+  LogOut
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import MealLog from './components/MealLog';
@@ -121,7 +122,7 @@ export default function App() {
       <ProfileSetup 
         profile={profile} 
         onComplete={handleProfileUpdate} 
-        onSkip={() => setShowSetup(false)} 
+        onSkip={() => handleProfileUpdate(profile)} 
       />
     );
   }
@@ -169,9 +170,19 @@ export default function App() {
             onClick={() => setActiveTab('settings')}
           >
             <SettingsIcon size={20} />
-            <span>Settings</span>
           </div>
         </nav>
+
+        <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid hsl(var(--border-light))' }}>
+          <div 
+            className="nav-item" 
+            onClick={handleLogout}
+            style={{ color: 'hsl(var(--rose))' }}
+          >
+            <LogOut size={20} />
+            <span>Sign Out</span>
+          </div>
+        </div>
       </aside>
 
       {/* Main View Area */}

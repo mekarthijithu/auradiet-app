@@ -1,35 +1,56 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink, User } from 'lucide-react';
 
 export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout }) {
   const [apiKey, setApiKey] = useState(profile.apiKey || '');
   const [monthlyChange, setMonthlyChange] = useState(profile.monthlyTargetWeightChange || -2.0);
-  const [cal, setCal] = useState(profile.targets.calories || 2000);
-  const [prot, setProt] = useState(profile.targets.protein || 150);
-  const [carb, setCarb] = useState(profile.targets.carbs || 180);
-  const [fat, setFat] = useState(profile.targets.fat || 60);
-  const [fib, setFib] = useState(profile.targets.fiber || 30);
+  const [height, setHeight] = useState(profile.height || 178);
+  const [weight, setWeight] = useState(profile.weight || 82.5);
+  const [targetWeight, setTargetWeight] = useState(profile.targetWeight || 75.0);
+  const [activityLevel, setActivityLevel] = useState(profile.activityLevel || 'moderately_active');
+  const [workoutHours, setWorkoutHours] = useState(profile.workoutHours || 5);
+
+  const [cal, setCal] = useState(profile.targets?.calories || 2000);
+  const [prot, setProt] = useState(profile.targets?.protein || 150);
+  const [carb, setCarb] = useState(profile.targets?.carbs || 180);
+  const [fat, setFat] = useState(profile.targets?.fat || 60);
+  const [fib, setFib] = useState(profile.targets?.fiber || 30);
   const [showSaved, setShowSaved] = useState(false);
+
+  useEffect(() => {
+    setApiKey(profile.apiKey || '');
+    setMonthlyChange(profile.monthlyTargetWeightChange || -2.0);
+    setHeight(profile.height || 178);
+    setWeight(profile.weight || 82.5);
+    setTargetWeight(profile.targetWeight || 75.0);
+    setActivityLevel(profile.activityLevel || 'moderately_active');
+    setWorkoutHours(profile.workoutHours || 5);
+    setCal(profile.targets?.calories || 2000);
+    setProt(profile.targets?.protein || 150);
+    setCarb(profile.targets?.carbs || 180);
+    setFat(profile.targets?.fat || 60);
+    setFib(profile.targets?.fiber || 30);
+  }, [profile]);
 
   const handleSave = (e) => {
     e.preventDefault();
 
-    // Re-calculate calorie/macro targets based on target weight changes, height, and weight
-    const weight = profile.weight || 80;
-    const height = profile.height || 175;
-    const bmr = (10 * weight) + (6.25 * height) - (5 * 28) + 5;
+    // Re-calculate calorie/macro targets based on entered details
+    const w = parseFloat(weight) || 80;
+    const h = parseFloat(height) || 175;
+    const bmr = (10 * w) + (6.25 * h) - (5 * 28) + 5;
     
     let activityMultiplier = 1.2;
-    if (profile.activityLevel === 'lightly_active') activityMultiplier = 1.375;
-    if (profile.activityLevel === 'moderately_active') activityMultiplier = 1.55;
-    if (profile.activityLevel === 'very_active') activityMultiplier = 1.725;
+    if (activityLevel === 'lightly_active') activityMultiplier = 1.375;
+    if (activityLevel === 'moderately_active') activityMultiplier = 1.55;
+    if (activityLevel === 'very_active') activityMultiplier = 1.725;
     
-    const tdee = Math.round(bmr * activityMultiplier + (((profile.workoutHours || 4) * 400) / 7));
+    const tdee = Math.round(bmr * activityMultiplier + ((parseFloat(workoutHours) * 400) / 7));
 
     const dailyCalorieOffset = (parseFloat(monthlyChange) * 7700) / 30.4;
     const calorieTarget = Math.max(1200, Math.round(tdee + dailyCalorieOffset));
 
-    const proteinTarget = Math.round(weight * 2.0);
+    const proteinTarget = Math.round(w * 2.0);
     const fatTarget = Math.round((calorieTarget * 0.25) / 9);
     const carbCalories = calorieTarget - (proteinTarget * 4) - (fatTarget * 9);
     const carbTarget = Math.round(Math.max(50, carbCalories / 4));
@@ -38,6 +59,11 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
     const updated = {
       ...profile,
       apiKey: apiKey.trim(),
+      height: h,
+      weight: w,
+      targetWeight: parseFloat(targetWeight) || 75,
+      activityLevel,
+      workoutHours: parseFloat(workoutHours) || 4,
       monthlyTargetWeightChange: parseFloat(monthlyChange),
       targets: {
         calories: calorieTarget,
@@ -115,6 +141,86 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
             />
+          </div>
+        </div>
+
+        {/* Personal Details Settings */}
+        <div className="glass-panel" style={{ padding: '2rem' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <User size={18} color="hsl(var(--cyan))" /> Personal Details
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Height (cm)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={height} 
+                onChange={(e) => setHeight(e.target.value)}
+                min="100" 
+                max="250"
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Current Weight (kg)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={weight} 
+                onChange={(e) => setWeight(e.target.value)}
+                min="30" 
+                max="250"
+                step="0.1"
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Target Weight (kg)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={targetWeight} 
+                onChange={(e) => setTargetWeight(e.target.value)}
+                min="30" 
+                max="250"
+                step="0.1"
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Daily Activity Level</label>
+              <select 
+                className="form-select"
+                value={activityLevel}
+                onChange={(e) => setActivityLevel(e.target.value)}
+              >
+                <option value="sedentary">Sedentary (Desk Job, little exercise)</option>
+                <option value="lightly_active">Lightly Active (Light standing/walking, 1-2 workouts/wk)</option>
+                <option value="moderately_active">Moderately Active (Moderate movement, 3-5 workouts/wk)</option>
+                <option value="very_active">Very Active (Hard physical labor or daily heavy workouts)</option>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Weekly Workout Hours</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={workoutHours} 
+                onChange={(e) => setWorkoutHours(e.target.value)}
+                min="0" 
+                max="40"
+                step="0.5"
+                required
+              />
+            </div>
           </div>
         </div>
 

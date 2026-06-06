@@ -1,12 +1,12 @@
 // LocalStorage Database and Seeding Utility
 
 const KEYS = {
-  PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V2',
-  CURRENT_PROFILE_ID: 'AURA_DIET_CURRENT_PROFILE_ID_V2',
-  PROFILE: (id) => `AURA_DIET_PROFILE_${id}_V2`,
-  LOGS: (id) => `AURA_DIET_LOGS_${id}_V2`,
-  GROCERIES: (id) => `AURA_DIET_GROCERIES_${id}_V2`,
-  DIET_PLAN: (id) => `AURA_DIET_DIET_PLAN_${id}_V2`
+  PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V3',
+  CURRENT_PROFILE_ID: 'AURA_DIET_CURRENT_PROFILE_ID_V3',
+  PROFILE: (id) => `AURA_DIET_PROFILE_${id}_V3`,
+  LOGS: (id) => `AURA_DIET_LOGS_${id}_V3`,
+  GROCERIES: (id) => `AURA_DIET_GROCERIES_${id}_V3`,
+  DIET_PLAN: (id) => `AURA_DIET_DIET_PLAN_${id}_V3`
 };
 
 // Formats date as YYYY-MM-DD in local time

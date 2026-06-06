@@ -231,7 +231,7 @@ export default function Dashboard({ profile, logs, onLogsUpdate, currentDate, se
       weight: logs[d]?.weight || profile.weight
     }));
 
-    if (weightEntries.length === 0) return { path: '', area: '', labels: [] };
+    if (weightEntries.length === 0) return { path: '', area: '', points: [] };
 
     // Standard chart canvas grid is 800 x 180 (expanded for full-width)
     const wMax = Math.max(...weightEntries.map(e => e.weight), profile.weight) + 0.5;
