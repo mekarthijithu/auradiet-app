@@ -66,6 +66,21 @@ export const createProfile = (name) => {
   return newProfile;
 };
 
+export const deleteProfile = (id) => {
+  let list = JSON.parse(localStorage.getItem(KEYS.PROFILES_LIST)) || [];
+  list = list.filter(p => p.id !== id);
+  localStorage.setItem(KEYS.PROFILES_LIST, JSON.stringify(list));
+
+  localStorage.removeItem(KEYS.PROFILE(id));
+  localStorage.removeItem(KEYS.LOGS(id));
+  localStorage.removeItem(KEYS.GROCERIES(id));
+  localStorage.removeItem(KEYS.DIET_PLAN(id));
+  
+  if (localStorage.getItem(KEYS.CURRENT_PROFILE_ID) === id) {
+    localStorage.removeItem(KEYS.CURRENT_PROFILE_ID);
+  }
+};
+
 // Helper: Seed Initial Data
 const seedDatabase = (id) => {
   // 1. Initial Profile

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Heart, Plus } from 'lucide-react';
-import { getProfilesList, createProfile } from '../utils/db';
+import { Heart, Plus, Trash2 } from 'lucide-react';
+import { getProfilesList, createProfile, deleteProfile } from '../utils/db';
 
 export default function Login({ onSelectProfile }) {
   const [profiles, setProfiles] = useState(() => getProfilesList());
@@ -17,6 +17,14 @@ export default function Login({ onSelectProfile }) {
     onSelectProfile(newProfile.id);
   };
 
+  const handleDeleteProfile = (e, id) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this profile and all its data?')) {
+      deleteProfile(id);
+      setProfiles(getProfilesList());
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="glass-panel login-card">
@@ -30,18 +38,46 @@ export default function Login({ onSelectProfile }) {
 
         <div className="profiles-grid">
           {profiles.map((p) => {
-            const initials = p.name ? p.name.substring(0, 2).toUpperCase() : '?';
             return (
               <div 
                 key={p.id} 
                 className="profile-login-card"
                 onClick={() => onSelectProfile(p.id)}
+                style={{ position: 'relative' }}
               >
+                {p.id !== 'jithu' && (
+                  <button
+                    onClick={(e) => handleDeleteProfile(e, p.id)}
+                    style={{
+                      position: 'absolute',
+                      top: '0.5rem',
+                      right: '0.5rem',
+                      background: 'hsl(var(--bg-dark) / 80%)',
+                      border: '1px solid hsl(var(--border-light))',
+                      color: 'hsl(var(--rose))',
+                      cursor: 'pointer',
+                      padding: '0.35rem',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                    }}
+                    title="Delete Profile"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
                 <div 
                   className="profile-avatar"
-                  style={{ background: p.avatarColor || 'hsl(var(--emerald))' }}
+                  style={{ background: p.avatarColor || 'hsl(var(--emerald))', overflow: 'hidden' }}
                 >
-                  {initials}
+                  <img 
+                    src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p.name)}`} 
+                    alt={p.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                 </div>
                 <span className="profile-name">{p.name}</span>
                 <span className="profile-role">Active Member</span>
