@@ -572,6 +572,10 @@ export default function Dashboard({ profile, logs, onLogsUpdate, currentDate, se
               <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))' }}>
                 Total Active Burn: <strong style={{ color: 'hsl(var(--violet))' }}>{totalBurn} kcal</strong>
               </div>
+              <div style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', paddingLeft: '0.75rem', borderLeft: '2px solid hsl(var(--border-light))', margin: '0.15rem 0', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                <div>🚶 Walking: <strong>{stepsCalories} kcal</strong></div>
+                <div>🏋️ Workouts: <strong>{workoutCalories} kcal</strong></div>
+              </div>
               <div style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))' }}>
                 Remaining to Target: <strong style={{ color: 'hsl(var(--cyan))' }}>{Math.max(0, burnGoal - totalBurn)} kcal</strong>
               </div>
