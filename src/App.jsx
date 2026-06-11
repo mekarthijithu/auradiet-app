@@ -6,7 +6,11 @@ import {
   ShoppingCart, 
   Settings as SettingsIcon, 
   Heart,
-  LogOut
+  LogOut,
+  Dumbbell,
+  Scale,
+  Moon,
+  MessageSquare
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import MealLog from './components/MealLog';
@@ -15,6 +19,10 @@ import BudgetGrocery from './components/BudgetGrocery';
 import Settings from './components/Settings';
 import ProfileSetup from './components/ProfileSetup';
 import Login from './components/Login';
+import WorkoutLog from './components/WorkoutLog';
+import ProgressTracking from './components/ProgressTracking';
+import HabitsSleep from './components/HabitsSleep';
+import CoachChat from './components/CoachChat';
 import { 
   getProfile, 
   getLogs, 
@@ -212,7 +220,7 @@ export default function App() {
           {dbConnected ? (
             <>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'hsl(var(--emerald))', boxShadow: '0 0 6px hsl(var(--emerald))' }} />
-              <span>Redis DB Connected</span>
+              <span>Supabase DB Connected</span>
             </>
           ) : (
             <>
@@ -238,11 +246,39 @@ export default function App() {
             <span>Meal Logger</span>
           </div>
           <div 
+            className={`nav-item ${activeTab === 'workoutlog' ? 'active' : ''}`}
+            onClick={() => setActiveTab('workoutlog')}
+          >
+            <Dumbbell size={20} />
+            <span>Workout Logger</span>
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'progress' ? 'active' : ''}`}
+            onClick={() => setActiveTab('progress')}
+          >
+            <Scale size={20} />
+            <span>Body Progress</span>
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'habitssleep' ? 'active' : ''}`}
+            onClick={() => setActiveTab('habitssleep')}
+          >
+            <Moon size={20} />
+            <span>Habits & Sleep</span>
+          </div>
+          <div 
+            className={`nav-item ${activeTab === 'coachchat' ? 'active' : ''}`}
+            onClick={() => setActiveTab('coachchat')}
+          >
+            <MessageSquare size={20} />
+            <span>AI Coach Chat</span>
+          </div>
+          <div 
             className={`nav-item ${activeTab === 'aiweightloss' ? 'active' : ''}`}
             onClick={() => setActiveTab('aiweightloss')}
           >
             <TrendingDown size={20} />
-            <span>AI Weight Loss</span>
+            <span>AI Diet Plan</span>
           </div>
           <div 
             className={`nav-item ${activeTab === 'grocerybudget' ? 'active' : ''}`}
@@ -256,6 +292,7 @@ export default function App() {
             onClick={() => setActiveTab('settings')}
           >
             <SettingsIcon size={20} />
+            <span>Settings</span>
           </div>
         </nav>
 
@@ -293,6 +330,44 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'workoutlog' && (
+          <WorkoutLog 
+            profile={profile}
+            logs={logs}
+            onLogsUpdate={handleLogsUpdate}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+          />
+        )}
+
+        {activeTab === 'progress' && (
+          <ProgressTracking 
+            profile={profile}
+            logs={logs}
+            onLogsUpdate={handleLogsUpdate}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+          />
+        )}
+
+        {activeTab === 'habitssleep' && (
+          <HabitsSleep 
+            profile={profile}
+            logs={logs}
+            onLogsUpdate={handleLogsUpdate}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+          />
+        )}
+
+        {activeTab === 'coachchat' && (
+          <CoachChat 
+            profile={profile}
+            logs={logs}
+            onLogsUpdate={handleLogsUpdate}
+          />
+        )}
+
         {activeTab === 'aiweightloss' && (
           <AiWeightLoss 
             profile={profile}
@@ -326,7 +401,7 @@ export default function App() {
       </main>
 
       {/* Mobile Footer Navigation Bar */}
-      <nav className="mobile-bottom-nav">
+      <nav className="mobile-bottom-nav" style={{ overflowX: 'auto', gap: '1rem', whiteSpace: 'nowrap' }}>
         <div 
           className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
@@ -339,21 +414,35 @@ export default function App() {
           onClick={() => setActiveTab('meallog')}
         >
           <Utensils size={20} />
-          <span>Log</span>
+          <span>Meal</span>
         </div>
         <div 
-          className={`mobile-nav-item ${activeTab === 'aiweightloss' ? 'active' : ''}`}
-          onClick={() => setActiveTab('aiweightloss')}
+          className={`mobile-nav-item ${activeTab === 'workoutlog' ? 'active' : ''}`}
+          onClick={() => setActiveTab('workoutlog')}
         >
-          <TrendingDown size={20} />
-          <span>AI Plan</span>
+          <Dumbbell size={20} />
+          <span>Workout</span>
         </div>
         <div 
-          className={`mobile-nav-item ${activeTab === 'grocerybudget' ? 'active' : ''}`}
-          onClick={() => setActiveTab('grocerybudget')}
+          className={`mobile-nav-item ${activeTab === 'progress' ? 'active' : ''}`}
+          onClick={() => setActiveTab('progress')}
         >
-          <ShoppingCart size={20} />
-          <span>Budget</span>
+          <Scale size={20} />
+          <span>Progress</span>
+        </div>
+        <div 
+          className={`mobile-nav-item ${activeTab === 'habitssleep' ? 'active' : ''}`}
+          onClick={() => setActiveTab('habitssleep')}
+        >
+          <Moon size={20} />
+          <span>Habits</span>
+        </div>
+        <div 
+          className={`mobile-nav-item ${activeTab === 'coachchat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('coachchat')}
+        >
+          <MessageSquare size={20} />
+          <span>Coach</span>
         </div>
         <div 
           className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}

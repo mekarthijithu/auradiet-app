@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink, User, Cloud, Copy, RefreshCw } from 'lucide-react';
+import { Settings as SettingsIcon, Key, Sliders, AlertTriangle, Check, BookOpen, ExternalLink, User, Cloud, Activity } from 'lucide-react';
+import { formatDate } from '../utils/db';
 
 export default function Settings({ profile, onProfileUpdate, onResetAll, onLogout, dbConnected }) {
   const [apiKey, setApiKey] = useState(profile.apiKey || '');
-  const [monthlyChange, setMonthlyChange] = useState(profile.monthlyTargetWeightChange || -2.0);
+  const [googleClientId, setGoogleClientId] = useState(profile.googleClientId || '');
+  const [name, setName] = useState(profile.name || '');
+  const [age, setAge] = useState(profile.age || 25);
+  const [gender, setGender] = useState(profile.gender || 'Male');
   const [height, setHeight] = useState(profile.height || 178);
   const [weight, setWeight] = useState(profile.weight || 82.5);
   const [targetWeight, setTargetWeight] = useState(profile.targetWeight || 75.0);
+  const [targetCompletionDate, setTargetCompletionDate] = useState(profile.targetCompletionDate || '');
   const [activityLevel, setActivityLevel] = useState(profile.activityLevel || 'moderately_active');
-  const [workoutHours, setWorkoutHours] = useState(profile.workoutHours || 5);
+  const [gymExperience, setGymExperience] = useState(profile.gymExperience || 'Intermediate');
+  const [workoutDays, setWorkoutDays] = useState(profile.workoutDays || 4);
+  const [dietaryPreference, setDietaryPreference] = useState(profile.dietaryPreference || 'Non-Vegetarian');
 
   const [cal, setCal] = useState(profile.targets?.calories || 2000);
   const [prot, setProt] = useState(profile.targets?.protein || 150);
@@ -19,12 +26,19 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
 
   useEffect(() => {
     setApiKey(profile.apiKey || '');
-    setMonthlyChange(profile.monthlyTargetWeightChange || -2.0);
+    setGoogleClientId(profile.googleClientId || '');
+    setName(profile.name || '');
+    setAge(profile.age || 25);
+    setGender(profile.gender || 'Male');
     setHeight(profile.height || 178);
     setWeight(profile.weight || 82.5);
     setTargetWeight(profile.targetWeight || 75.0);
+    setTargetCompletionDate(profile.targetCompletionDate || '');
     setActivityLevel(profile.activityLevel || 'moderately_active');
-    setWorkoutHours(profile.workoutHours || 5);
+    setGymExperience(profile.gymExperience || 'Intermediate');
+    setWorkoutDays(profile.workoutDays || 4);
+    setDietaryPreference(profile.dietaryPreference || 'Non-Vegetarian');
+
     setCal(profile.targets?.calories || 2000);
     setProt(profile.targets?.protein || 150);
     setCarb(profile.targets?.carbs || 180);
@@ -35,36 +49,118 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
   const handleSave = (e) => {
     e.preventDefault();
 
-    // Re-calculate calorie/macro targets based on entered details
     const w = parseFloat(weight) || 80;
     const h = parseFloat(height) || 175;
-    const bmr = (10 * w) + (6.25 * h) - (5 * 28) + 5;
-    
+    const a = parseInt(age) || 25;
+
+    // Mifflin-St Jeor BMR
+    let bmr = 0;
+    if (gender === 'Male') {
+      bmr = (10 * w) + (6.25 * h) - (5 * a) + 5;
+    } else {
+      bmr = (10 * w) + (6.25 * h) - (5 * a) - 161;
+    }
+
+    // Activity Multiplier
     let activityMultiplier = 1.2;
     if (activityLevel === 'lightly_active') activityMultiplier = 1.375;
     if (activityLevel === 'moderately_active') activityMultiplier = 1.55;
     if (activityLevel === 'very_active') activityMultiplier = 1.725;
-    
-    const tdee = Math.round(bmr * activityMultiplier + ((parseFloat(workoutHours) * 400) / 7));
 
-    const dailyCalorieOffset = (parseFloat(monthlyChange) * 7700) / 30.4;
-    const calorieTarget = Math.max(1200, Math.round(tdee + dailyCalorieOffset));
+    const tdee = Math.round(bmr * activityMultiplier);
 
-    const proteinTarget = Math.round(w * 2.0);
+    // Calculate days remaining to target date
+    let daysRemaining = 90; // Default
+    if (targetCompletionDate) {
+      const today = new Date();
+      const target = new Date(targetCompletionDate);
+      const timeDiff = target.getTime() - today.getTime();
+      if (timeDiff > 0) {
+        daysRemaining = Math.max(7, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+      }
+    }
+
+    const weightDiff = targetWeight - w;
+    let calorieTarget = tdee;
+    let estimatedAchievementDate = targetCompletionDate;
+
+    if (weightDiff < 0) {
+      const totalDeficitNeeded = Math.abs(weightDiff) * 7700;
+      const dailyDeficitNeeded = totalDeficitNeeded / daysRemaining;
+
+      if (dailyDeficitNeeded > 1000) {
+        calorieTarget = Math.round(tdee - 500);
+        const achievementDays = Math.round(totalDeficitNeeded / 500);
+        const estDate = new Date();
+        estDate.setDate(estDate.getDate() + achievementDays);
+        estimatedAchievementDate = formatDate(estDate);
+      } else if (dailyDeficitNeeded < 300) {
+        calorieTarget = Math.round(tdee - 350);
+        const achievementDays = Math.round(totalDeficitNeeded / 350);
+        const estDate = new Date();
+        estDate.setDate(estDate.getDate() + achievementDays);
+        estimatedAchievementDate = formatDate(estDate);
+      } else {
+        calorieTarget = Math.round(tdee - dailyDeficitNeeded);
+        estimatedAchievementDate = targetCompletionDate;
+      }
+      calorieTarget = Math.max(1200, calorieTarget);
+    } else if (weightDiff > 0) {
+      const totalSurplusNeeded = weightDiff * 7700;
+      const dailySurplusNeeded = totalSurplusNeeded / daysRemaining;
+
+      if (dailySurplusNeeded > 500) {
+        calorieTarget = Math.round(tdee + 350);
+        const achievementDays = Math.round(totalSurplusNeeded / 350);
+        const estDate = new Date();
+        estDate.setDate(estDate.getDate() + achievementDays);
+        estimatedAchievementDate = formatDate(estDate);
+      } else if (dailySurplusNeeded < 200) {
+        calorieTarget = Math.round(tdee + 250);
+        const achievementDays = Math.round(totalSurplusNeeded / 250);
+        const estDate = new Date();
+        estDate.setDate(estDate.getDate() + achievementDays);
+        estimatedAchievementDate = formatDate(estDate);
+      } else {
+        calorieTarget = Math.round(tdee + dailySurplusNeeded);
+        estimatedAchievementDate = targetCompletionDate;
+      }
+    }
+
+    // Protein split based on experience
+    let proteinPerKg = 2.0;
+    if (gymExperience === 'Beginner') proteinPerKg = 1.6;
+    if (gymExperience === 'Advanced') proteinPerKg = 2.2;
+    const proteinTarget = Math.round(w * proteinPerKg);
+
     const fatTarget = Math.round((calorieTarget * 0.25) / 9);
     const carbCalories = calorieTarget - (proteinTarget * 4) - (fatTarget * 9);
     const carbTarget = Math.round(Math.max(50, carbCalories / 4));
     const fiberTarget = Math.round(Math.max(25, (calorieTarget / 1000) * 14));
 
+    if (!estimatedAchievementDate) {
+      const achievementDays = Math.max(30, Math.round((Math.abs(weightDiff) || 5) * 7700 / 500));
+      const estDate = new Date();
+      estDate.setDate(estDate.getDate() + achievementDays);
+      estimatedAchievementDate = formatDate(estDate);
+    }
+
     const updated = {
       ...profile,
       apiKey: apiKey.trim(),
+      googleClientId: googleClientId.trim(),
+      name: name.trim(),
+      age: a,
+      gender,
       height: h,
       weight: w,
       targetWeight: parseFloat(targetWeight) || 75,
+      targetCompletionDate,
+      estimatedAchievementDate,
       activityLevel,
-      workoutHours: parseFloat(workoutHours) || 4,
-      monthlyTargetWeightChange: parseFloat(monthlyChange),
+      gymExperience,
+      workoutDays: parseInt(workoutDays),
+      dietaryPreference,
       targets: {
         calories: calorieTarget,
         protein: proteinTarget,
@@ -76,7 +172,6 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
 
     onProfileUpdate(updated);
 
-    // Sync input box states
     setCal(calorieTarget);
     setProt(proteinTarget);
     setCarb(carbTarget);
@@ -92,7 +187,7 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
       <header className="page-header">
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Configure API integrations, customize daily limits, and manage local data</p>
+          <p className="page-subtitle">Configure AI model integrations, edit personal metrics, and view database synchronizations</p>
         </div>
       </header>
 
@@ -101,26 +196,13 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <BookOpen size={18} color="hsl(var(--cyan))" /> How to Get a Free Gemini API Key
         </h3>
-        
         <ol style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem', color: 'hsl(var(--text-secondary))', lineHeight: '1.5' }}>
           <li>
             Go to the official <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: 'hsl(var(--cyan))', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '0.1rem' }}>Google AI Studio <ExternalLink size={12} /></a>.
           </li>
-          <li>
-            Sign in using any standard personal **Google Account** (Gmail).
-          </li>
-          <li>
-            Click on the prominent blue button: **"Get API key"** (or **"Create API Key"**).
-          </li>
-          <li>
-            Click **"Create API key in new project"** and consent to terms.
-          </li>
-          <li>
-            **Copy** the generated key (starts with <code>AIzaSy...</code>).
-          </li>
-          <li>
-            Return here, paste the copied key into the **Gemini API Key** field below, and click **Save Settings**!
-          </li>
+          <li>Sign in using a Google Account.</li>
+          <li>Click on **"Get API key"** and create a key in a new project.</li>
+          <li>Copy the generated key (starts with <code>AIzaSy...</code>) and paste it below.</li>
         </ol>
       </div>
 
@@ -129,9 +211,8 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
         {/* API Settings */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Key size={18} color="hsl(var(--cyan))" /> AI Model Configuration
+            <Key size={18} color="hsl(var(--cyan))" /> AI Companion Integration
           </h3>
-          
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Gemini API Key</label>
             <input 
@@ -144,125 +225,142 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
           </div>
         </div>
 
-        {/* Personal Details Settings */}
+        {/* Smartwatch Settings */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <User size={18} color="hsl(var(--cyan))" /> Personal Details
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={18} color="hsl(var(--cyan))" /> Google Fit / Smartwatch Sync
           </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Height (cm)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={height} 
-                onChange={(e) => setHeight(e.target.value)}
-                min="100" 
-                max="250"
-                required
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Current Weight (kg)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={weight} 
-                onChange={(e) => setWeight(e.target.value)}
-                min="30" 
-                max="250"
-                step="0.1"
-                required
-              />
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Target Weight (kg)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={targetWeight} 
-                onChange={(e) => setTargetWeight(e.target.value)}
-                min="30" 
-                max="250"
-                step="0.1"
-                required
-              />
-            </div>
+          <p style={{ fontSize: '0.85rem', color: 'hsl(var(--text-secondary))', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+            Sync fitness data (steps, active calories, sleep, weight, workouts) directly from your Noise/Google Fit connected watch.
+          </p>
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <label className="form-label">Google OAuth Client ID</label>
+            <input 
+              type="text"
+              className="form-input"
+              placeholder="12345678-abcde.apps.googleusercontent.com"
+              value={googleClientId}
+              onChange={(e) => setGoogleClientId(e.target.value)}
+            />
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Daily Activity Level</label>
-              <select 
-                className="form-select"
-                value={activityLevel}
-                onChange={(e) => setActivityLevel(e.target.value)}
-              >
-                <option value="sedentary">Sedentary (Desk Job, little exercise)</option>
-                <option value="lightly_active">Lightly Active (Light standing/walking, 1-2 workouts/wk)</option>
-                <option value="moderately_active">Moderately Active (Moderate movement, 3-5 workouts/wk)</option>
-                <option value="very_active">Very Active (Hard physical labor or daily heavy workouts)</option>
-              </select>
-            </div>
-
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Weekly Workout Hours</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={workoutHours} 
-                onChange={(e) => setWorkoutHours(e.target.value)}
-                min="0" 
-                max="40"
-                step="0.5"
-                required
-              />
-            </div>
+          
+          <div style={{ background: 'hsl(var(--bg-card) / 40%)', border: '1px solid hsl(var(--border-light))', borderRadius: '8px', padding: '1rem', fontSize: '0.85rem' }}>
+            <h4 style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'hsl(var(--cyan))' }}>
+              <BookOpen size={14} /> Setup Instructions:
+            </h4>
+            <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem', color: 'hsl(var(--text-secondary))', lineHeight: '1.4' }}>
+              <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" style={{ color: 'hsl(var(--cyan))', textDecoration: 'underline' }}>Google Cloud Console <ExternalLink size={10} /></a> and select/create a project.</li>
+              <li>Configure the **OAuth consent screen** (User Type: External) with your email and basic app name details. Add the scopes: <code>.../auth/fitness.activity.read</code> and <code>.../auth/fitness.body.read</code>.</li>
+              <li>Go to **Credentials** &rarr; **Create Credentials** &rarr; **OAuth client ID**.</li>
+              <li>Choose **Web application** and add authorized JavaScript origins:
+                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px', marginTop: '0.25rem', fontFamily: 'monospace', fontSize: '0.75rem', color: 'hsl(var(--cyan))' }}>
+                  http://localhost:5173<br/>
+                  https://auradiet-app.vercel.app
+                </div>
+              </li>
+              <li>Copy the generated **Client ID** and paste it above!</li>
+            </ol>
           </div>
         </div>
 
-        {/* Nutritional Targets Settings */}
+        {/* Profile Details */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Sliders size={18} color="hsl(var(--emerald))" /> Target Customization
+            <User size={18} color="hsl(var(--cyan))" /> Personal Profile Metrics
           </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Monthly Weight Goal Target (kg)</label>
-              <input 
-                type="number" 
-                step="0.1"
-                className="form-input" 
-                value={monthlyChange} 
-                onChange={(e) => setMonthlyChange(e.target.value)}
-                required 
-              />
-              <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>
-                Negative values to lose weight (e.g. -2.0 kg/mo). Positive values to gain weight (e.g. 1.5 kg/mo).
-              </span>
+              <label className="form-label">Full Name</label>
+              <input type="text" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
-
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Auto-Computed Daily Calories Limit (kcal)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={cal} 
-                disabled
-                style={{ opacity: 0.6, cursor: 'not-allowed' }}
-              />
-              <span style={{ display: 'block', fontSize: '0.75rem', color: 'hsl(var(--text-muted))', marginTop: '0.5rem' }}>
-                Automatically calculated based on your BMR, TDEE, active workouts, and monthly weight target.
-              </span>
+              <label className="form-label">Age (years)</label>
+              <input type="number" className="form-input" value={age} onChange={(e) => setAge(parseInt(e.target.value) || 25)} required />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Gender</label>
+              <select className="form-select" value={gender} onChange={(e) => setGender(e.target.value)}>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Height (cm)</label>
+              <input type="number" className="form-input" value={height} onChange={(e) => setHeight(parseFloat(e.target.value) || 178)} required />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Current Weight (kg)</label>
+              <input type="number" className="form-input" step="0.1" value={weight} onChange={(e) => setWeight(parseFloat(e.target.value) || 82.5)} required />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Goal Weight (kg)</label>
+              <input type="number" className="form-input" step="0.1" value={targetWeight} onChange={(e) => setTargetWeight(parseFloat(e.target.value) || 75.0)} required />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Target Completion Date</label>
+              <input type="date" className="form-input" value={targetCompletionDate} onChange={(e) => setTargetCompletionDate(e.target.value)} required />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Estimated Achievement Date</label>
+              <input type="text" className="form-input" value={profile.estimatedAchievementDate || 'Calculating...'} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem' }}>
+            <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+              <label className="form-label">Activity Level</label>
+              <select className="form-select" value={activityLevel} onChange={(e) => setActivityLevel(e.target.value)}>
+                <option value="sedentary">Sedentary (Desk job, no activity)</option>
+                <option value="lightly_active">Lightly Active (1-2 sessions/wk)</option>
+                <option value="moderately_active">Moderately Active (3-5 sessions/wk)</option>
+                <option value="very_active">Very Active (heavy physical work)</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Experience</label>
+              <select className="form-select" value={gymExperience} onChange={(e) => setGymExperience(e.target.value)}>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Days / Wk</label>
+              <input type="number" className="form-input" value={workoutDays} onChange={(e) => setWorkoutDays(parseInt(e.target.value) || 4)} min="1" max="7" />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginTop: '1.25rem', marginBottom: 0 }}>
+            <label className="form-label">Dietary Preference</label>
+            <select className="form-select" value={dietaryPreference} onChange={(e) => setDietaryPreference(e.target.value)}>
+              <option value="Vegetarian">Vegetarian</option>
+              <option value="Eggetarian">Eggetarian</option>
+              <option value="Non-Vegetarian">Non-Vegetarian</option>
+              <option value="Vegan">Vegan</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Targets */}
+        <div className="glass-panel" style={{ padding: '2rem' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sliders size={18} color="hsl(var(--emerald))" /> Computed Target Budgets
+          </h3>
+
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">Computed Daily Calories Limit (kcal)</label>
+            <input type="number" className="form-input" value={cal} disabled style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+          </div>
+
           <div style={{ borderTop: '1px solid hsl(var(--border-light))', paddingTop: '1.5rem' }}>
-            <h4 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#fff' }}>Computed Macronutrient Budgets:</h4>
+            <h4 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#fff' }}>Computed Macronutrient Targets:</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Protein (g)</label>
@@ -284,12 +382,10 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
           </div>
         </div>
 
-        {/* Save button & success indicators */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button type="submit" className="btn btn-primary" style={{ padding: '0.8rem 2.5rem' }}>
             Save Settings
           </button>
-          
           {showSaved && (
             <span style={{ color: 'hsl(var(--emerald))', fontSize: '0.95rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <Check size={16} /> Configuration saved!
@@ -299,84 +395,38 @@ export default function Settings({ profile, onProfileUpdate, onResetAll, onLogou
 
       </form>
 
-      {/* Database Connection Settings */}
+      {/* DB Integration Status */}
       <div className="glass-panel" style={{ padding: '2rem', marginTop: '1.5rem' }}>
         <h3 style={{ fontSize: '1.25rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Cloud size={18} color="hsl(var(--cyan))" /> Database Integration Status
+          <Cloud size={18} color="hsl(var(--cyan))" /> Database Sync Status
         </h3>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-          Automatically sync your diet progress, logged meals, targets, and grocery items across all browsers using your remote database.
-        </p>
-
         {dbConnected ? (
-          <div style={{
-            padding: '1rem',
-            background: 'hsl(var(--emerald) / 5%)',
-            border: '1px solid hsl(var(--emerald) / 20%)',
-            borderRadius: '8px',
-            color: 'hsl(var(--emerald))',
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--emerald))', boxShadow: '0 0 8px hsl(var(--emerald))' }} />
-            <span><strong>Database Connected:</strong> Your daily data is stored in the database. When you open the application in another browser, all updates are fully reflected instantly.</span>
+          <div style={{ padding: '1rem', background: 'hsl(var(--emerald) / 5%)', border: '1px solid hsl(var(--emerald) / 20%)', borderRadius: '8px', color: 'hsl(var(--emerald))', fontSize: '0.9rem' }}>
+            Database Connected: Sync active across Vercel deployments.
           </div>
         ) : (
-          <div style={{
-            padding: '1rem',
-            background: 'hsl(var(--amber) / 5%)',
-            border: '1px solid hsl(var(--amber) / 20%)',
-            borderRadius: '8px',
-            color: 'hsl(var(--amber))',
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--amber))', boxShadow: '0 0 8px hsl(var(--amber))' }} />
-            <span><strong>Running in Local Storage Mode:</strong> The local database API proxy `/api/db` is unreachable, or `REDIS_URL` is missing. Sync is inactive.</span>
+          <div style={{ padding: '1rem', background: 'hsl(var(--amber) / 5%)', border: '1px solid hsl(var(--amber) / 20%)', borderRadius: '8px', color: 'hsl(var(--amber))', fontSize: '0.9rem' }}>
+            Offline Mode: Using local browser storage.
           </div>
         )}
       </div>
 
-      {/* Profile Management Section */}
-      <div className="glass-panel" style={{ padding: '2rem', marginTop: '2.5rem' }}>
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          Profile Session
-        </h3>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-          You are currently logged in as <strong style={{ color: '#fff' }}>{profile.name || 'Jithu'}</strong>.
+      {/* Logout */}
+      <div className="glass-panel" style={{ padding: '2rem', marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Profile Session</h3>
+        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1rem' }}>
+          Logged in as {profile.name} ({gender}, {age}yo).
         </p>
-
-        <button 
-          onClick={onLogout}
-          className="btn btn-secondary"
-        >
-          Logout & Switch Profile
-        </button>
+        <button onClick={onLogout} className="btn btn-secondary">Logout & Switch Profile</button>
       </div>
 
-      {/* Database Reset Danger Zone */}
-      <div className="glass-panel" style={{ padding: '2rem', border: '1px solid hsl(var(--rose) / 25%)', marginTop: '3rem' }}>
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'hsl(var(--rose))' }}>
-          <AlertTriangle size={18} /> Danger Zone
-        </h3>
-        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-          This will wipe your current settings, custom profiles, meal histories, and active check-ins, restoring the original seeded mock data. This action is irreversible.
+      {/* Danger Zone */}
+      <div className="glass-panel" style={{ padding: '2rem', border: '1px solid hsl(var(--rose) / 25%)', marginTop: '2.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', color: 'hsl(var(--rose))' }}>Danger Zone</h3>
+        <p style={{ color: 'hsl(var(--text-secondary))', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+          Resetting will wipe all workout logs, diet histories, achievements, and settings from the database.
         </p>
-
-        <button 
-          onClick={() => {
-            if (window.confirm('Are you sure you want to reset all data back to factory seeds?')) {
-              onResetAll();
-            }
-          }}
-          className="btn btn-danger"
-        >
-          Reset Application Data
-        </button>
+        <button onClick={() => { if (window.confirm('Reset all details?')) onResetAll(); }} className="btn btn-danger">Reset Application Data</button>
       </div>
     </div>
   );

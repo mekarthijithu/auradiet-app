@@ -1,60 +1,110 @@
-// Remote Redis Database Utility via API Proxy
+import { createClient } from '@supabase/supabase-js';
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Check if Supabase keys are configured and are not the placeholder strings
+const isSupabaseConfigured = 
+  supabaseUrl && 
+  supabaseKey && 
+  !supabaseUrl.includes("your-project-id") && 
+  !supabaseKey.includes("your-public-anon-key");
+
+let supabase = null;
 let isUsingDatabase = false;
+
+if (isSupabaseConfigured) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    isUsingDatabase = true;
+  } catch (err) {
+    console.error("Failed to initialize Supabase client:", err);
+  }
+}
 
 export const checkDbConnected = () => {
   return isUsingDatabase;
 };
 
-// Vercel KV / Upstash Redis Command Runner over HTTP
+// Key-Value Style command handler using Supabase PostgreSQL table 'kv_store'
 const runKVCommand = async (command) => {
+  if (!isUsingDatabase || !supabase) {
+    return null;
+  }
+
   try {
-    const isGet = command[0] === 'GET';
-    const method = isGet ? 'GET' : 'POST';
-    const url = isGet 
-      ? `/api/db?key=${encodeURIComponent(command[1])}`
-      : '/api/db';
-    
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json'
+    const [cmd, key, value] = command;
+
+    if (cmd === 'GET') {
+      const { data, error } = await supabase
+        .from('kv_store')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Supabase query error (possibly missing kv_store table):", error.message);
+        return null;
       }
-    };
-    if (!isGet) {
-      options.body = JSON.stringify({
-        cmd: command[0],
-        key: command[1],
-        value: command[2]
-      });
+      if (!data) return null;
+      return typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+    } 
+    
+    if (cmd === 'SET') {
+      let parsedVal = value;
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed !== null && parsed !== undefined) {
+          parsedVal = parsed;
+        }
+      } catch (e) {
+        // keep string
+      }
+
+      const { error } = await supabase
+        .from('kv_store')
+        .upsert({ key, value: parsedVal });
+
+      if (error) {
+        console.warn("Supabase upsert error:", error.message);
+        return null;
+      }
+      return 'OK';
+    } 
+    
+    if (cmd === 'DEL') {
+      const { error } = await supabase
+        .from('kv_store')
+        .delete()
+        .eq('key', key);
+
+      if (error) {
+        console.warn("Supabase delete error:", error.message);
+        return null;
+      }
+      return 1;
     }
 
-    const res = await fetch(url, options);
-    if (!res.ok) {
-      console.warn(`Serverless DB API Error: HTTP ${res.status}`);
-      isUsingDatabase = false;
-      return null;
-    }
-    const data = await res.json();
-    isUsingDatabase = true;
-    return data.result;
+    return null;
   } catch (err) {
-    console.warn("Database API is currently unreachable. Falling back to local storage.", err);
-    isUsingDatabase = false;
+    console.warn("Supabase connection interrupted. Falling back to local storage.", err);
     return null;
   }
 };
 
-const isKVConfigured = true; // Enabled by default to use the /api/db proxy
+const isKVConfigured = isUsingDatabase; // True only if Supabase keys are provided
 
 
 export const KEYS = {
-  PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V3',
-  CURRENT_PROFILE_ID: 'AURA_DIET_CURRENT_PROFILE_ID_V3',
-  PROFILE: (id) => `AURA_DIET_PROFILE_${id}_V3`,
-  LOGS: (id) => `AURA_DIET_LOGS_${id}_V3`,
-  GROCERIES: (id) => `AURA_DIET_GROCERIES_${id}_V3`,
-  DIET_PLAN: (id) => `AURA_DIET_DIET_PLAN_${id}_V3`
+  PROFILES_LIST: 'AURA_DIET_PROFILES_LIST_V4',
+  CURRENT_PROFILE_ID: 'AURA_DIET_CURRENT_PROFILE_ID_V4',
+  PROFILE: (id) => `AURA_DIET_PROFILE_${id}_V4`,
+  LOGS: (id) => `AURA_DIET_LOGS_${id}_V4`,
+  GROCERIES: (id) => `AURA_DIET_GROCERIES_${id}_V4`,
+  DIET_PLAN: (id) => `AURA_DIET_DIET_PLAN_${id}_V4`,
+  WEEKLY_REPORTS: (id) => `AURA_DIET_WEEKLY_REPORTS_${id}_V4`,
+  ACHIEVEMENTS: (id) => `AURA_DIET_ACHIEVEMENTS_${id}_V4`,
+  CHAT_HISTORY: (id) => `AURA_DIET_CHAT_HISTORY_${id}_V4`
 };
 
 // Caches for synchronous access by UI components
@@ -63,6 +113,9 @@ let cachedProfile = null;
 let cachedLogs = null;
 let cachedGroceries = null;
 let cachedDietPlan = null;
+let cachedWeeklyReports = null;
+let cachedAchievements = null;
+let cachedChatHistory = null;
 let lastLoadedProfileId = null;
 
 // Invalidate cache if switching profiles
@@ -72,6 +125,9 @@ const checkProfileSwitch = (id) => {
     cachedLogs = null;
     cachedGroceries = null;
     cachedDietPlan = null;
+    cachedWeeklyReports = null;
+    cachedAchievements = null;
+    cachedChatHistory = null;
     lastLoadedProfileId = id;
   }
 };
@@ -122,10 +178,8 @@ export const getProfilesList = async () => {
 
   // Fallback to localStorage
   let list = JSON.parse(localStorage.getItem(KEYS.PROFILES_LIST));
-  if (!list || list.length === 0) {
-    list = [
-      { id: 'jithu', name: 'Jithu', avatarColor: 'hsl(160, 84%, 39%)' }
-    ];
+  if (!list) {
+    list = [];
     localStorage.setItem(KEYS.PROFILES_LIST, JSON.stringify(list));
   }
   cachedProfilesList = list;
@@ -151,12 +205,19 @@ export const createProfile = async (name) => {
     const defaultProfile = {
       name,
       apiKey: '',
+      age: 25,
+      gender: 'Male',
       height: 178,
       weight: 82.5,
       targetWeight: 75.0,
       monthlyTargetWeightChange: -2.0,
       activityLevel: 'moderately_active',
       workoutHours: 5,
+      workoutDays: 4,
+      gymExperience: 'Intermediate',
+      dietaryPreference: 'Non-Vegetarian',
+      targetCompletionDate: '',
+      estimatedAchievementDate: '',
       targets: {
         calories: 2000,
         protein: 150,
@@ -171,6 +232,8 @@ export const createProfile = async (name) => {
     await runKVCommand(['SET', `auradiet:logs:${newId}`, JSON.stringify({})]);
     await runKVCommand(['SET', `auradiet:groceries:${newId}`, JSON.stringify([])]);
     await runKVCommand(['SET', `auradiet:dietPlan:${newId}`, JSON.stringify(null)]);
+    await runKVCommand(['SET', `auradiet:weeklyReports:${newId}`, JSON.stringify([])]);
+    await runKVCommand(['SET', `auradiet:achievements:${newId}`, JSON.stringify([])]);
   } else {
     // LocalStorage fallback
     localStorage.setItem(KEYS.PROFILES_LIST, JSON.stringify(list));
@@ -178,12 +241,19 @@ export const createProfile = async (name) => {
     const defaultProfile = {
       name,
       apiKey: '',
+      age: 25,
+      gender: 'Male',
       height: 178,
       weight: 82.5,
       targetWeight: 75.0,
       monthlyTargetWeightChange: -2.0,
       activityLevel: 'moderately_active',
       workoutHours: 5,
+      workoutDays: 4,
+      gymExperience: 'Intermediate',
+      dietaryPreference: 'Non-Vegetarian',
+      targetCompletionDate: '',
+      estimatedAchievementDate: '',
       targets: {
         calories: 2000,
         protein: 150,
@@ -198,6 +268,8 @@ export const createProfile = async (name) => {
     localStorage.setItem(KEYS.LOGS(newId), JSON.stringify({}));
     localStorage.setItem(KEYS.GROCERIES(newId), JSON.stringify([]));
     localStorage.setItem(KEYS.DIET_PLAN(newId), JSON.stringify(null));
+    localStorage.setItem(KEYS.WEEKLY_REPORTS(newId), JSON.stringify([]));
+    localStorage.setItem(KEYS.ACHIEVEMENTS(newId), JSON.stringify([]));
   }
 
   return newProfile;
@@ -214,12 +286,14 @@ export const deleteProfile = async (id) => {
     await runKVCommand(['DEL', `auradiet:logs:${id}`]);
     await runKVCommand(['DEL', `auradiet:groceries:${id}`]);
     await runKVCommand(['DEL', `auradiet:dietPlan:${id}`]);
+    await runKVCommand(['DEL', `auradiet:chatHistory:${id}`]);
   } else {
     localStorage.setItem(KEYS.PROFILES_LIST, JSON.stringify(list));
     localStorage.removeItem(KEYS.PROFILE(id));
     localStorage.removeItem(KEYS.LOGS(id));
     localStorage.removeItem(KEYS.GROCERIES(id));
     localStorage.removeItem(KEYS.DIET_PLAN(id));
+    localStorage.removeItem(KEYS.CHAT_HISTORY(id));
   }
 
   if (localStorage.getItem(KEYS.CURRENT_PROFILE_ID) === id) {
@@ -236,12 +310,19 @@ const seedDatabase = async (id) => {
   const defaultProfile = {
     name,
     apiKey: '',
+    age: 25,
+    gender: 'Male',
     height: 178,
     weight: 82.5,
     targetWeight: 75.0,
     monthlyTargetWeightChange: -2.0,
     activityLevel: 'moderately_active',
     workoutHours: 5,
+    workoutDays: 4,
+    gymExperience: 'Intermediate',
+    dietaryPreference: 'Non-Vegetarian',
+    targetCompletionDate: '',
+    estimatedAchievementDate: '',
     targets: {
       calories: 2000,
       protein: 150,
@@ -249,7 +330,7 @@ const seedDatabase = async (id) => {
       fat: 60,
       fiber: 30
     },
-    setupCompleted: id === 'jithu',
+    setupCompleted: false,
     lastUpdated: Date.now()
   };
 
@@ -258,11 +339,15 @@ const seedDatabase = async (id) => {
     await runKVCommand(['SET', `auradiet:logs:${id}`, JSON.stringify({})]);
     await runKVCommand(['SET', `auradiet:groceries:${id}`, JSON.stringify([])]);
     await runKVCommand(['SET', `auradiet:dietPlan:${id}`, JSON.stringify(null)]);
+    await runKVCommand(['SET', `auradiet:weeklyReports:${id}`, JSON.stringify([])]);
+    await runKVCommand(['SET', `auradiet:achievements:${id}`, JSON.stringify([])]);
   } else {
     localStorage.setItem(KEYS.PROFILE(id), JSON.stringify(defaultProfile));
     localStorage.setItem(KEYS.LOGS(id), JSON.stringify({}));
     localStorage.setItem(KEYS.GROCERIES(id), JSON.stringify([]));
     localStorage.setItem(KEYS.DIET_PLAN(id), JSON.stringify(null));
+    localStorage.setItem(KEYS.WEEKLY_REPORTS(id), JSON.stringify([]));
+    localStorage.setItem(KEYS.ACHIEVEMENTS(id), JSON.stringify([]));
   }
 
   cachedProfile = defaultProfile;
@@ -355,22 +440,24 @@ export const saveLogs = async (logs) => {
 export const getDayLog = (dateStr) => {
   const logs = cachedLogs || {};
   if (!logs[dateStr]) {
-    logs[dateStr] = {
-      meals: [],
-      water: 0,
-      weight: getLatestWeight(),
-      workout: { hours: 0, caloriesBurned: 0, source: 'Manual' },
-      mealSchedule: { breakfast: 'pending', lunch: 'pending', snacks: 'pending', dinner: 'pending' }
-    };
-    // Cache it, save to DB asynchronously
-    cachedLogs = logs;
-    saveLogs(logs);
-  } else if (!logs[dateStr].mealSchedule) {
-    logs[dateStr].mealSchedule = { breakfast: 'pending', lunch: 'pending', snacks: 'pending', dinner: 'pending' };
-    cachedLogs = logs;
-    saveLogs(logs);
+    logs[dateStr] = {};
   }
-  return logs[dateStr];
+  
+  const day = logs[dateStr];
+  if (!day.meals) day.meals = [];
+  if (day.water === undefined) day.water = 0;
+  if (day.steps === undefined) day.steps = 0;
+  if (day.activeCalories === undefined) day.activeCalories = 0;
+  if (!day.sleep) day.sleep = { hours: 0, start: '', end: '' };
+  if (!day.workout) day.workout = { completed: false, entries: [] };
+  if (!day.habits) day.habits = { gym: false, water: false, protein: false, steps: false, sleep: false, vitamins: false };
+  if (day.weight === undefined) day.weight = getLatestWeight();
+  if (!day.measurements) day.measurements = { waist: 0, chest: 0, arms: 0, thighs: 0, bodyFat: 0, bmi: 0 };
+  if (!day.mealSchedule) day.mealSchedule = { breakfast: 'pending', lunch: 'pending', snacks: 'pending', dinner: 'pending' };
+  
+  logs[dateStr] = day;
+  cachedLogs = logs;
+  return day;
 };
 
 // Helper: Save single day log (Updates cache and triggers async DB save)
@@ -472,6 +559,117 @@ export const saveDietPlan = async (plan) => {
   }
 };
 
+// --- WEEKLY REPORTS CRUD ---
+export const getWeeklyReports = async () => {
+  const id = getCurrentProfileId();
+  if (!id) return [];
+  checkProfileSwitch(id);
+
+  if (cachedWeeklyReports) return cachedWeeklyReports;
+
+  if (isKVConfigured) {
+    const res = await runKVCommand(['GET', `auradiet:weeklyReports:${id}`]);
+    if (res) {
+      cachedWeeklyReports = JSON.parse(res) || [];
+      return cachedWeeklyReports;
+    }
+  } else {
+    const local = localStorage.getItem(KEYS.WEEKLY_REPORTS(id));
+    if (local) {
+      cachedWeeklyReports = JSON.parse(local) || [];
+      return cachedWeeklyReports;
+    }
+  }
+  return [];
+};
+
+export const saveWeeklyReports = async (reports) => {
+  const id = getCurrentProfileId();
+  if (!id) return;
+  checkProfileSwitch(id);
+  cachedWeeklyReports = reports;
+
+  if (isKVConfigured) {
+    await runKVCommand(['SET', `auradiet:weeklyReports:${id}`, JSON.stringify(reports)]);
+  } else {
+    localStorage.setItem(KEYS.WEEKLY_REPORTS(id), JSON.stringify(reports));
+  }
+};
+
+// --- ACHIEVEMENTS CRUD ---
+export const getAchievements = async () => {
+  const id = getCurrentProfileId();
+  if (!id) return [];
+  checkProfileSwitch(id);
+
+  if (cachedAchievements) return cachedAchievements;
+
+  if (isKVConfigured) {
+    const res = await runKVCommand(['GET', `auradiet:achievements:${id}`]);
+    if (res) {
+      cachedAchievements = JSON.parse(res) || [];
+      return cachedAchievements;
+    }
+  } else {
+    const local = localStorage.getItem(KEYS.ACHIEVEMENTS(id));
+    if (local) {
+      cachedAchievements = JSON.parse(local) || [];
+      return cachedAchievements;
+    }
+  }
+  return [];
+};
+
+export const saveAchievements = async (achievements) => {
+  const id = getCurrentProfileId();
+  if (!id) return;
+  checkProfileSwitch(id);
+  cachedAchievements = achievements;
+
+  if (isKVConfigured) {
+    await runKVCommand(['SET', `auradiet:achievements:${id}`, JSON.stringify(achievements)]);
+  } else {
+    localStorage.setItem(KEYS.ACHIEVEMENTS(id), JSON.stringify(achievements));
+  }
+};
+
+// --- CHAT HISTORY CRUD ---
+export const getChatHistory = async () => {
+  const id = getCurrentProfileId();
+  if (!id) return [];
+  checkProfileSwitch(id);
+
+  if (cachedChatHistory) return cachedChatHistory;
+
+  if (isKVConfigured) {
+    const res = await runKVCommand(['GET', `auradiet:chatHistory:${id}`]);
+    if (res) {
+      cachedChatHistory = JSON.parse(res) || [];
+      return cachedChatHistory;
+    }
+  } else {
+    const local = localStorage.getItem(KEYS.CHAT_HISTORY(id));
+    if (local) {
+      cachedChatHistory = JSON.parse(local) || [];
+      return cachedChatHistory;
+    }
+  }
+  return [];
+};
+
+export const saveChatHistory = async (history) => {
+  const id = getCurrentProfileId();
+  if (!id) return;
+  checkProfileSwitch(id);
+  cachedChatHistory = history;
+
+  if (isKVConfigured) {
+    await runKVCommand(['SET', `auradiet:chatHistory:${id}`, JSON.stringify(history)]);
+  } else {
+    localStorage.setItem(KEYS.CHAT_HISTORY(id), JSON.stringify(history));
+  }
+};
+
 // --- GENERAL RESET ---
 export const resetDB = async () => {
   const id = getCurrentProfileId();
@@ -481,17 +679,26 @@ export const resetDB = async () => {
   cachedLogs = null;
   cachedGroceries = null;
   cachedDietPlan = null;
+  cachedWeeklyReports = null;
+  cachedAchievements = null;
+  cachedChatHistory = null;
 
   if (isKVConfigured) {
     await runKVCommand(['DEL', `auradiet:profile:${id}`]);
     await runKVCommand(['DEL', `auradiet:logs:${id}`]);
     await runKVCommand(['DEL', `auradiet:groceries:${id}`]);
     await runKVCommand(['DEL', `auradiet:dietPlan:${id}`]);
+    await runKVCommand(['DEL', `auradiet:weeklyReports:${id}`]);
+    await runKVCommand(['DEL', `auradiet:achievements:${id}`]);
+    await runKVCommand(['DEL', `auradiet:chatHistory:${id}`]);
   } else {
     localStorage.removeItem(KEYS.PROFILE(id));
     localStorage.removeItem(KEYS.LOGS(id));
     localStorage.removeItem(KEYS.GROCERIES(id));
     localStorage.removeItem(KEYS.DIET_PLAN(id));
+    localStorage.removeItem(KEYS.WEEKLY_REPORTS(id));
+    localStorage.removeItem(KEYS.ACHIEVEMENTS(id));
+    localStorage.removeItem(KEYS.CHAT_HISTORY(id));
   }
   await seedDatabase(id);
 };
